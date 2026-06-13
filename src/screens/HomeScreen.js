@@ -1,5 +1,5 @@
 import React from 'react';
-import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import SearchBar from '../components/home/SearchBar';
@@ -15,9 +15,6 @@ export default function HomeScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <TouchableOpacity onPress={() => navigation.openDrawer()}>
-            <Ionicons name='menu' size={24} color='white' />
-          </TouchableOpacity>
           <Text style={styles.logo}>Vivu360</Text>
           <Ionicons name='notifications' size={24} color='white' />
         </View>
@@ -40,9 +37,7 @@ export default function HomeScreen({ navigation }) {
               </Text>
             </View>
           </View>
-        </View>
 
-        <View style={styles.searchBarSize}>
           <SearchBar />
         </View>
 
@@ -97,10 +92,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center'
-  },
-  searchBarSize: {
-    marginHorizontal: 20,
-    marginTop: -28,
-    zIndex: 10
   }
 });

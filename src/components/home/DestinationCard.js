@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { ImageBackground, StyleSheet, Text, View } from 'react-native';
 
-export default function DestinationCard ({ item }) {
+export default function DestinationCard({ item }) {
   return (
     <ImageBackground
       source={{ uri: item.image }}

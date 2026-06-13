@@ -1,4 +1,4 @@
-const destinations = [
+export const destinations = [
     {
         id: 1,
         name: 'Hạ Long',
