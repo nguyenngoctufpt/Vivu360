@@ -1,0 +1,554 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, Pressable, ScrollView, StyleSheet, Alert, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  Home,
+  Globe,
+  Scan,
+  Map as MapIcon,
+  User,
+  MessageSquare,
+  Newspaper,
+} from 'lucide-react-native';
+
+import {
+  HomeScreen,
+  ExploreScreen,
+  CameraScreen,
+  ProfileScreen,
+} from './screens';
+
+import { MapScreen, VirtualTourScreen, ProvinceGalleryScreen, TicketDetailScreen, TicketListScreen } from './map';
+import { SocialScreen } from './social';
+import { ChatScreen } from './chat';
+import { EditProfileScreen, MembershipTiersScreen, TravelChallengesScreen } from './settings';
+import { LoginScreen, RegisterScreen } from './auth';
+
+import {
+  banners,
+  allCategories,
+  getTheme,
+} from './data';
+
+export default function App() {
+  const [activeNav, setActiveNav] = useState('home');
+  const [prevNav, setPrevNav] = useState('home');
+  const [ticketFlowSource, setTicketFlowSource] = useState('profile');
+  const activeNavRef = React.useRef(activeNav);
+
+  useEffect(() => {
+    if (activeNavRef.current !== activeNav) {
+      const prev = activeNavRef.current;
+      setPrevNav(prev);
+      activeNavRef.current = activeNav;
+
+      if (prev !== 'ticketList' && prev !== 'ticketDetail') {
+        setTicketFlowSource(prev);
+      }
+    }
+  }, [activeNav]);
+
+  const [currentBanner, setCurrentBanner] = useState(0);
+  const [expandedCategories, setExpandedCategories] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Search & Navigation sync states
+  const [exploreTag, setExploreTag] = useState('all');
+  const [exploreSearch, setExploreSearch] = useState('');
+
+  // Tour navigation states
+  const [selectedTourId, setSelectedTourId] = useState(1);
+  const [selectedSpotIdx, setSelectedSpotIdx] = useState(0);
+
+  // Province gallery navigation states
+  const [selectedProvinceName, setSelectedProvinceName] = useState('');
+
+  // Ticket selection state
+  const [selectedTicketCode, setSelectedTicketCode] = useState(null);
+
+  // Auth navigation states
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [authRoute, setAuthRoute] = useState('login'); // 'login' | 'register'
+
+  // Booked tickets state
+  const [bookedTickets, setBookedTickets] = useState([
+    {
+      code: 'VV360-HL4829',
+      title: 'Vịnh Hạ Long',
+      region: 'Quảng Ninh',
+      date: '2026-06-18',
+      guests: 2,
+      price: '2.500.000đ',
+      status: 'Đã xác nhận'
+    }
+  ]);
+
+  // Light/Dark Theme State
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  const theme = useMemo(() => getTheme(isDarkMode), [isDarkMode]);
+
+  // Bottom navigation show/hide scroll anim state
+  const lastOffsetY = React.useRef(0);
+  const isNavVisible = React.useRef(true);
+  const translateY = React.useRef(new Animated.Value(0)).current;
+
+  // Track activeNav change to reset bottom nav visibility
+  useEffect(() => {
+    isNavVisible.current = true;
+    Animated.timing(translateY, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+  }, [activeNav]);
+
+  const handleScroll = (event) => {
+    const currentOffsetY = event.nativeEvent.contentOffset.y;
+    const diffY = currentOffsetY - lastOffsetY.current;
+
+    // Minimum scroll movement to change visibility
+    if (Math.abs(diffY) > 15) {
+      if (diffY > 0 && currentOffsetY > 100) {
+        // Scroll down -> Hide bottom bar
+        if (isNavVisible.current) {
+          isNavVisible.current = false;
+          Animated.timing(translateY, {
+            toValue: 120, // Slide down completely
+            duration: 220,
+            useNativeDriver: true,
+          }).start();
+        }
+      } else if (diffY < 0 || currentOffsetY <= 30) {
+        // Scroll up or close to top -> Show bottom bar
+        if (!isNavVisible.current) {
+          isNavVisible.current = true;
+          Animated.timing(translateY, {
+            toValue: 0,
+            duration: 180,
+            useNativeDriver: true,
+          }).start();
+        }
+      }
+      lastOffsetY.current = currentOffsetY;
+    }
+  };
+
+  // Global User Info State (synchronized across all views)
+  const [userInfo, setUserInfo] = useState({
+    name: 'Nguyễn Minh',
+    email: 'minh.nguyen@vivu360.vn',
+    avatar: 'https://i.pravatar.cc/150?img=68',
+    phone: '0987654321',
+    bio: 'Thích tìm hiểu lịch sử, danh lam thắng cảnh. Thích trải nghiệm tham quan ảo AR 360 độ trên Vivu360! 🌐🎒',
+    level: 'Cấp 8',
+    points: 8250,
+    checkedIn: [1], // Checked-in places log (1 represents Vịnh Hạ Long)
+  });
+
+  const handleAddPoints = (amount) => {
+    setUserInfo(prev => {
+      const newPoints = prev.points + amount;
+      const newLevelNum = Math.floor(newPoints / 1000) + 1;
+      return {
+        ...prev,
+        points: newPoints,
+        level: `Cấp ${newLevelNum}`
+      };
+    });
+  };
+
+  const handleCheckIn = (placeId, xpAmount) => {
+    setUserInfo(prev => {
+      const alreadyChecked = prev.checkedIn || [];
+      if (alreadyChecked.includes(placeId)) return prev;
+      const newPoints = prev.points + xpAmount;
+      const newLevelNum = Math.floor(newPoints / 1000) + 1;
+      return {
+        ...prev,
+        points: newPoints,
+        level: `Cấp ${newLevelNum}`,
+        checkedIn: [...alreadyChecked, placeId]
+      };
+    });
+  };
+
+  // Category list size calculator
+  const displayedCategories = useMemo(() => {
+    return expandedCategories ? allCategories : allCategories.slice(0, 8);
+  }, [expandedCategories]);
+
+  // Update clock widget
+  useEffect(() => {
+    const t = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Slide banners loop
+  useEffect(() => {
+    const t = setInterval(() => {
+      setCurrentBanner((prev) => (prev + 1) % banners.length);
+    }, 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  const banner = banners[currentBanner];
+
+  // Helper render active tab screen
+  const renderScreenContent = () => {
+    switch (activeNav) {
+      case 'explore':
+        return (
+          <ExploreScreen
+            isDarkMode={isDarkMode}
+            setIsDarkMode={setIsDarkMode}
+            theme={theme}
+            selectedTag={exploreTag}
+            setSelectedTag={setExploreTag}
+            searchQuery={exploreSearch}
+            setSearchQuery={setExploreSearch}
+            onBookSuccess={(newTicket) => {
+              setBookedTickets(prev => [newTicket, ...prev]);
+            }}
+          />
+        );
+      case 'social':
+        return <SocialScreen isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} theme={theme} currentUser={userInfo} onNavigateToTab={(tab) => setActiveNav(tab)} />;
+      case 'chat':
+        return <ChatScreen isDarkMode={isDarkMode} theme={theme} currentUser={userInfo} onNavigateToTab={(tab) => setActiveNav(tab)} prevScreen={prevNav} />;
+      case 'camera':
+        return (
+          <CameraScreen
+            isDarkMode={isDarkMode}
+            setIsDarkMode={setIsDarkMode}
+            theme={theme}
+            onNavigateToTour={(tourId, spotIdx) => {
+              setSelectedTourId(tourId);
+              setSelectedSpotIdx(spotIdx !== undefined ? spotIdx : 0);
+              setActiveNav('virtualTour');
+            }}
+            onNavigateToTab={(tab) => {
+              setActiveNav(tab);
+            }}
+            onViewTicket={(ticketCode) => {
+              setSelectedTicketCode(ticketCode);
+              setActiveNav('ticketDetail');
+            }}
+          />
+        );
+      case 'map':
+        return (
+          <MapScreen
+            isDarkMode={isDarkMode}
+            setIsDarkMode={setIsDarkMode}
+            theme={theme}
+            userInfo={userInfo}
+            onCheckIn={handleCheckIn}
+            onNavigateToTour={(tourId, spotIdx) => {
+              setSelectedTourId(tourId);
+              setSelectedSpotIdx(spotIdx !== undefined ? spotIdx : 0);
+              setActiveNav('virtualTour');
+            }}
+            onNavigateToProvince={(provName) => {
+              setSelectedProvinceName(provName);
+              setActiveNav('provinceGallery');
+            }}
+          />
+        );
+      case 'virtualTour':
+        return (
+          <VirtualTourScreen
+            theme={theme}
+            isDarkMode={isDarkMode}
+            tourId={selectedTourId}
+            startSpotIdx={selectedSpotIdx}
+            onBack={() => setActiveNav('map')}
+            onBookSuccess={(newTicket) => {
+              setBookedTickets(prev => [newTicket, ...prev]);
+            }}
+          />
+        );
+      case 'provinceGallery':
+        return (
+          <ProvinceGalleryScreen
+            theme={theme}
+            isDarkMode={isDarkMode}
+            provinceName={selectedProvinceName}
+            onBack={() => setActiveNav('map')}
+            onNavigateToTour={(tourId, spotIdx) => {
+              setSelectedTourId(tourId);
+              setSelectedSpotIdx(spotIdx !== undefined ? spotIdx : 0);
+              setActiveNav('virtualTour');
+            }}
+          />
+        );
+      case 'profile':
+        return (
+          <ProfileScreen
+            isDarkMode={isDarkMode}
+            setIsDarkMode={setIsDarkMode}
+            theme={theme}
+            userInfo={userInfo}
+            setUserInfo={setUserInfo}
+            bookedTickets={bookedTickets}
+            onEditProfile={() => setActiveNav('editProfile')}
+            onViewTicketList={() => setActiveNav('ticketList')}
+            onViewTiers={() => setActiveNav('membershipTiers')}
+            onViewChallenges={() => setActiveNav('travelChallenges')}
+            onLogout={() => {
+              setIsLoggedIn(false);
+              setAuthRoute('login');
+              setActiveNav('home');
+            }}
+          />
+        );
+      case 'ticketList':
+        return (
+          <TicketListScreen
+            theme={theme}
+            isDarkMode={isDarkMode}
+            bookedTickets={bookedTickets}
+            onBack={() => setActiveNav(ticketFlowSource || 'profile')}
+            onViewTicket={(ticketCode) => {
+              setSelectedTicketCode(ticketCode);
+              setActiveNav('ticketDetail');
+            }}
+          />
+        );
+      case 'ticketDetail':
+        return (
+          <TicketDetailScreen
+            theme={theme}
+            isDarkMode={isDarkMode}
+            ticket={bookedTickets.find(t => t.code === selectedTicketCode)}
+            onBack={() => setActiveNav('ticketList')}
+            onCancelTicket={(ticketCode) => {
+              setBookedTickets(prev => prev.filter(t => t.code !== ticketCode));
+              setActiveNav('ticketList');
+              Alert.alert('Thành công', 'Đã hủy vé điện tử thành công và hoàn trả số tiền (nếu có)!');
+            }}
+          />
+        );
+      case 'editProfile':
+        return (
+          <EditProfileScreen
+            theme={theme}
+            isDarkMode={isDarkMode}
+            currentUser={userInfo}
+            onBack={() => setActiveNav('profile')}
+            onSave={(data) => setUserInfo({ ...userInfo, ...data })}
+          />
+        );
+      case 'membershipTiers':
+        return (
+          <MembershipTiersScreen
+            theme={theme}
+            isDarkMode={isDarkMode}
+            userInfo={userInfo}
+            onBack={() => setActiveNav('profile')}
+          />
+        );
+      case 'travelChallenges':
+        return (
+          <TravelChallengesScreen
+            theme={theme}
+            isDarkMode={isDarkMode}
+            userInfo={userInfo}
+            onBack={() => setActiveNav('profile')}
+            onAddPoints={handleAddPoints}
+            onNavigateToTab={(tab) => {
+              setActiveNav(tab);
+            }}
+          />
+        );
+      case 'home':
+      default:
+        return (
+          <HomeScreen
+            currentTime={currentTime}
+            banner={banner}
+            currentBanner={currentBanner}
+            setCurrentBanner={setCurrentBanner}
+            expandedCategories={expandedCategories}
+            setExpandedCategories={setExpandedCategories}
+            displayedCategories={displayedCategories}
+            isDarkMode={isDarkMode}
+            setIsDarkMode={setIsDarkMode}
+            theme={theme}
+            currentUser={userInfo}
+            onNavigateToExplore={(tag, search) => {
+              setExploreTag(tag);
+              setExploreSearch(search || '');
+              setActiveNav('explore');
+            }}
+            onNavigateToTab={(tab) => {
+              setActiveNav(tab);
+            }}
+            onNavigateToTour={(tourId, spotIdx) => {
+              setSelectedTourId(tourId);
+              setSelectedSpotIdx(spotIdx !== undefined ? spotIdx : 0);
+              setActiveNav('virtualTour');
+            }}
+          />
+        );
+    }
+  };
+
+  if (!isLoggedIn) {
+    if (authRoute === 'login') {
+      return (
+        <LoginScreen
+          theme={theme}
+          isDarkMode={isDarkMode}
+          onRegisterPress={() => setAuthRoute('register')}
+          onLoginSuccess={(user) => {
+            setUserInfo({ ...userInfo, ...user });
+            setIsLoggedIn(true);
+          }}
+        />
+      );
+    } else {
+      return (
+        <RegisterScreen
+          theme={theme}
+          isDarkMode={isDarkMode}
+          onBackPress={() => setAuthRoute('login')}
+          onRegisterSuccess={() => setAuthRoute('login')}
+        />
+      );
+    }
+  }
+
+  return (
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      {activeNav === 'editProfile' || activeNav === 'membershipTiers' || activeNav === 'travelChallenges' || activeNav === 'virtualTour' || activeNav === 'provinceGallery' || activeNav === 'ticketDetail' || activeNav === 'ticketList' || activeNav === 'map' || activeNav === 'social' || activeNav === 'chat' ? (
+        renderScreenContent()
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+        >
+          {renderScreenContent()}
+        </ScrollView>
+      )}
+
+      {/* FLOATING BOTTOM NAV BAR */}
+      {activeNav !== 'editProfile' && activeNav !== 'membershipTiers' && activeNav !== 'travelChallenges' && activeNav !== 'virtualTour' && activeNav !== 'provinceGallery' && activeNav !== 'ticketDetail' && activeNav !== 'ticketList' && activeNav !== 'chat' && (
+        <Animated.View style={[
+          styles.bottomNav, 
+          { 
+            backgroundColor: theme.navBg, 
+            borderColor: theme.navBorder,
+            transform: [{ translateY }] 
+          }
+        ]}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.navItem,
+              pressed && { transform: [{ scale: 0.92 }], opacity: 0.95 }
+            ]}
+            onPress={() => setActiveNav('home')}
+          >
+            <Home size={20} color={activeNav === 'home' ? '#3b82f6' : theme.textSecondary} />
+            <Text style={[styles.navText, { color: activeNav === 'home' ? '#3b82f6' : theme.textSecondary }]}>Trang chủ</Text>
+            {activeNav === 'home' && <View style={styles.activeDot} />}
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.navItem,
+              pressed && { transform: [{ scale: 0.92 }], opacity: 0.95 }
+            ]}
+            onPress={() => setActiveNav('explore')}
+          >
+            <Globe size={20} color={activeNav === 'explore' ? '#3b82f6' : theme.textSecondary} />
+            <Text style={[styles.navText, { color: activeNav === 'explore' ? '#3b82f6' : theme.textSecondary }]}>Khám phá</Text>
+            {activeNav === 'explore' && <View style={styles.activeDot} />}
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.navItem,
+              pressed && { transform: [{ scale: 0.92 }], opacity: 0.95 }
+            ]}
+            onPress={() => setActiveNav('map')}
+          >
+            <MapIcon size={20} color={activeNav === 'map' ? '#3b82f6' : theme.textSecondary} />
+            <Text style={[styles.navText, { color: activeNav === 'map' ? '#3b82f6' : theme.textSecondary }]}>Bản đồ</Text>
+            {activeNav === 'map' && <View style={styles.activeDot} />}
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.navItem,
+              pressed && { transform: [{ scale: 0.92 }], opacity: 0.95 }
+            ]}
+            onPress={() => setActiveNav('social')}
+          >
+            <Newspaper size={20} color={activeNav === 'social' ? '#3b82f6' : theme.textSecondary} />
+            <Text style={[styles.navText, { color: activeNav === 'social' ? '#3b82f6' : theme.textSecondary }]}>Bảng tin</Text>
+            {activeNav === 'social' && <View style={styles.activeDot} />}
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.navItem,
+              pressed && { transform: [{ scale: 0.92 }], opacity: 0.95 }
+            ]}
+            onPress={() => setActiveNav('profile')}
+          >
+            <User size={20} color={activeNav === 'profile' ? '#3b82f6' : theme.textSecondary} />
+            <Text style={[styles.navText, { color: activeNav === 'profile' ? '#3b82f6' : theme.textSecondary }]}>Cá nhân</Text>
+            {activeNav === 'profile' && <View style={styles.activeDot} />}
+          </Pressable>
+        </Animated.View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  // Main Container
+  screen: { flex: 1 },
+  scrollContent: { paddingBottom: 94 },
+
+  // Bottom Docked Navigation
+  bottomNav: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 78,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 10,
+    paddingHorizontal: 12,
+    zIndex: 9999,
+  },
+  navItem: { 
+    flex: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    height: '100%',
+    paddingTop: 8,
+  },
+  navItemActive: {},
+  navText: { fontSize: 9.5, fontWeight: '700', marginTop: 4, letterSpacing: 0.1, textAlign: 'center' },
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#3b82f6',
+    marginTop: 4,
+    position: 'absolute',
+    bottom: 6,
+  },
+});
