@@ -17,6 +17,9 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, Eye, EyeOff, Globe, Sparkles } from 'lucide-react-native';
+import { auth } from './firebaseConfig';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { sendLocalNotification } from './notificationHelper';
 
 const { width } = Dimensions.get('window');
 
@@ -29,20 +32,49 @@ export function LoginScreen({ theme, isDarkMode, onRegisterPress, onLoginSuccess
 
   const handleLogin = () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ tài khoản và mật khẩu.');
+      sendLocalNotification('Lỗi ⚠️', 'Vui lòng điền đầy đủ tài khoản và mật khẩu.');
       return;
     }
 
     setIsLoading(true);
 
-    // Simulate login API call
-    setTimeout(() => {
-      setIsLoading(false);
-      Alert.alert('Đăng nhập thành công', `Chào mừng trở lại Vivu360!`);
-      if (onLoginSuccess) {
-        onLoginSuccess({ name: 'Nguyễn Minh', email: email.trim() });
-      }
-    }, 1500);
+    signInWithEmailAndPassword(auth, email.trim(), password.trim())
+      .then((userCredential) => {
+        setIsLoading(false);
+        const user = userCredential.user;
+        const displayName = user.displayName || user.email.split('@')[0];
+        
+        // Gửi thông báo đẩy cục bộ chào mừng
+        sendLocalNotification(
+          'Đăng nhập thành công! 🎉',
+          `Chào mừng ${displayName} đã quay trở lại với Vivu360.`
+        );
+
+        if (onLoginSuccess) {
+          onLoginSuccess({
+            name: displayName,
+            email: user.email,
+          });
+        }
+      })
+      .catch((error) => {
+        setIsLoading(false);
+        let errorMessage = 'Đã có lỗi xảy ra. Vui lòng thử lại.';
+        if (
+          error.code === 'auth/user-not-found' ||
+          error.code === 'auth/wrong-password' ||
+          error.code === 'auth/invalid-credential'
+        ) {
+          errorMessage = 'Email hoặc mật khẩu không chính xác.';
+        } else if (error.code === 'auth/invalid-email') {
+          errorMessage = 'Địa chỉ email không hợp lệ.';
+        } else if (error.code === 'auth/too-many-requests') {
+          errorMessage = 'Tài khoản tạm thời bị khóa do đăng nhập sai nhiều lần. Hãy thử lại sau.';
+        } else {
+          errorMessage = error.message;
+        }
+        sendLocalNotification('Lỗi đăng nhập ⚠️', errorMessage);
+      });
   };
 
   const getBorderColor = (fieldName) => {
@@ -101,7 +133,7 @@ export function LoginScreen({ theme, isDarkMode, onRegisterPress, onLoginSuccess
                 Đăng nhập để tiếp tục tham quan ảo và kết nối cộng đồng du lịch
               </Text>
 
-              {/* Email/Phone Input */}
+              {/* Email Input */}
               <View style={styles.inputGroup}>
                 <View
                   style={[
@@ -119,7 +151,7 @@ export function LoginScreen({ theme, isDarkMode, onRegisterPress, onLoginSuccess
                     onFocus={() => setFocusedField('email')}
                     onBlur={() => setFocusedField(null)}
                     style={[styles.textInput, { color: theme.textPrimary }]}
-                    placeholder="Email hoặc số điện thoại"
+                    placeholder="Địa chỉ Email"
                     placeholderTextColor={theme.textMuted}
                     keyboardType="email-address"
                     autoCapitalize="none"
@@ -162,7 +194,7 @@ export function LoginScreen({ theme, isDarkMode, onRegisterPress, onLoginSuccess
 
               {/* Forgot Password Link */}
               <Pressable
-                onPress={() => Alert.alert('Quên mật khẩu', 'Hệ thống gửi mã khôi phục đang được kích hoạt.')}
+                onPress={() => sendLocalNotification('Quên mật khẩu ✉️', 'Hệ thống gửi mã khôi phục đang được kích hoạt.')}
                 style={styles.forgotBtn}
               >
                 <Text style={styles.forgotText}>Quên mật khẩu?</Text>
@@ -197,7 +229,7 @@ export function LoginScreen({ theme, isDarkMode, onRegisterPress, onLoginSuccess
                 {/* Google Button */}
                 <Pressable
                   style={[styles.socialBtn, { backgroundColor: isDarkMode ? 'rgba(23, 15, 38, 0.45)' : 'rgba(255, 255, 255, 0.55)', borderColor: isDarkMode ? 'rgba(168, 85, 247, 0.16)' : 'rgba(168, 85, 247, 0.08)' }]}
-                  onPress={() => Alert.alert('Google Auth', 'Đang kết nối đến tài khoản Google...')}
+                  onPress={() => sendLocalNotification('Google Auth 🌐', 'Đang kết nối đến tài khoản Google...')}
                 >
                   <View style={[styles.googleIcon, { backgroundColor: '#ea4335' }]}>
                     <Text style={styles.googleText}>G</Text>
@@ -208,7 +240,7 @@ export function LoginScreen({ theme, isDarkMode, onRegisterPress, onLoginSuccess
                 {/* Facebook Button */}
                 <Pressable
                   style={[styles.socialBtn, { backgroundColor: isDarkMode ? 'rgba(23, 15, 38, 0.45)' : 'rgba(255, 255, 255, 0.55)', borderColor: isDarkMode ? 'rgba(168, 85, 247, 0.16)' : 'rgba(168, 85, 247, 0.08)' }]}
-                  onPress={() => Alert.alert('Facebook Auth', 'Đang kết nối đến tài khoản Facebook...')}
+                  onPress={() => sendLocalNotification('Facebook Auth 🌐', 'Đang kết nối đến tài khoản Facebook...')}
                 >
                   <View style={[styles.fbIcon, { backgroundColor: '#1877f2' }]}>
                     <Text style={styles.fbText}>f</Text>

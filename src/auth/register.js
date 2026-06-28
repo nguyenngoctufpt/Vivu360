@@ -18,13 +18,15 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, User, Mail, Phone, Lock, Eye, EyeOff, CheckCircle } from 'lucide-react-native';
+import { auth } from './firebaseConfig';
+import { createUserWithEmailAndPassword, updateProfile, signOut } from 'firebase/auth';
+import { sendLocalNotification } from './notificationHelper';
 
 const { width } = Dimensions.get('window');
 
 export function RegisterScreen({ theme, isDarkMode, onBackPress, onRegisterSuccess }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
@@ -34,31 +36,84 @@ export function RegisterScreen({ theme, isDarkMode, onBackPress, onRegisterSucce
   const [focusedField, setFocusedField] = useState(null);
 
   const handleRegister = () => {
-    if (!name.trim() || !email.trim() || !phone.trim() || !password.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ các thông tin đăng ký.');
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      sendLocalNotification('Lỗi ⚠️', 'Vui lòng nhập đầy đủ các thông tin đăng ký.');
       return;
     }
     
     if (password !== confirmPassword) {
-      Alert.alert('Lỗi', 'Mật khẩu xác nhận không khớp.');
+      sendLocalNotification('Lỗi ⚠️', 'Mật khẩu xác nhận không khớp.');
       return;
     }
 
     if (!agreeTerms) {
-      Alert.alert('Lỗi', 'Vui lòng đồng ý với Điều khoản dịch vụ của Vivu360.');
+      sendLocalNotification('Lỗi ⚠️', 'Vui lòng đồng ý với Điều khoản dịch vụ của Vivu360.');
       return;
     }
 
     setIsLoading(true);
 
-    // Simulate signup API call
-    setTimeout(() => {
-      setIsLoading(false);
-      Alert.alert('Đăng ký thành công', 'Tài khoản Vivu360 của bạn đã được khởi tạo!');
-      if (onRegisterSuccess) {
-        onRegisterSuccess({ name: name.trim(), email: email.trim(), phone: phone.trim() });
-      }
-    }, 1500);
+    createUserWithEmailAndPassword(auth, email.trim(), password.trim())
+      .then((userCredential) => {
+        // Cập nhật tên hiển thị của người dùng sau khi đăng ký thành công
+        updateProfile(userCredential.user, {
+          displayName: name.trim()
+        })
+        .then(() => {
+          signOut(auth)
+            .then(() => {
+              setIsLoading(false);
+              sendLocalNotification(
+                'Đăng ký thành công! 🎉',
+                `Chào mừng ${name.trim()} trở thành hội viên Vivu360.`
+              );
+              if (onRegisterSuccess) {
+                onRegisterSuccess();
+              }
+            })
+            .catch((err) => {
+              console.warn('Lỗi đăng xuất sau đăng ký:', err);
+              setIsLoading(false);
+              if (onRegisterSuccess) {
+                onRegisterSuccess();
+              }
+            });
+        })
+        .catch((err) => {
+          console.warn('Lỗi cập nhật profile:', err);
+          signOut(auth)
+            .then(() => {
+              setIsLoading(false);
+              sendLocalNotification(
+                'Đăng ký thành công! 🎉',
+                `Chào mừng ${name.trim()} trở thành hội viên Vivu360.`
+              );
+              if (onRegisterSuccess) {
+                onRegisterSuccess();
+              }
+            })
+            .catch(() => {
+              setIsLoading(false);
+              if (onRegisterSuccess) {
+                onRegisterSuccess();
+              }
+            });
+        });
+      })
+      .catch((error) => {
+        setIsLoading(false);
+        let errorMessage = 'Đã có lỗi xảy ra. Vui lòng thử lại.';
+        if (error.code === 'auth/email-already-in-use') {
+          errorMessage = 'Địa chỉ email này đã được đăng ký sử dụng.';
+        } else if (error.code === 'auth/invalid-email') {
+          errorMessage = 'Địa chỉ email không hợp lệ.';
+        } else if (error.code === 'auth/weak-password') {
+          errorMessage = 'Mật khẩu phải chứa ít nhất 6 ký tự.';
+        } else {
+          errorMessage = error.message;
+        }
+        sendLocalNotification('Lỗi đăng ký ⚠️', errorMessage);
+      });
   };
 
   const getBorderColor = (fieldName) => {
@@ -170,33 +225,6 @@ export function RegisterScreen({ theme, isDarkMode, onBackPress, onRegisterSucce
                   placeholderTextColor={theme.textMuted}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                />
-              </View>
-            </View>
-
-            {/* Phone Input */}
-            <View style={styles.formGroup}>
-              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Số điện thoại</Text>
-              <View
-                style={[
-                  styles.inputContainer,
-                  {
-                    backgroundColor: theme.searchBg,
-                    borderColor: getBorderColor('phone'),
-                    shadowOpacity: focusedField === 'phone' ? 0.1 : 0,
-                  },
-                ]}
-              >
-                <Phone size={16} color={getIconColor('phone')} />
-                <TextInput
-                  value={phone}
-                  onChangeText={setPhone}
-                  onFocus={() => setFocusedField('phone')}
-                  onBlur={() => setFocusedField(null)}
-                  style={[styles.textInput, { color: theme.textPrimary }]}
-                  placeholder="Nhập số điện thoại của bạn"
-                  placeholderTextColor={theme.textMuted}
-                  keyboardType="phone-pad"
                 />
               </View>
             </View>
