@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Vivu360",
+    "slug": "DATN_VIVU360",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vivu360"
+    },
+    "android": {
+      "package": "com.vivu360"
+    }
+  }
+}
