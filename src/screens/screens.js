@@ -108,7 +108,7 @@ export function HomeScreen({
 
   const searchableFeatures = useMemo(() => {
     const categories = allCategories.map(cat => ({
-      key: cat.key,
+      key: `cat-${cat.key}`,
       label: cat.label,
       type: 'category',
       Icon: cat.Icon,
@@ -126,7 +126,7 @@ export function HomeScreen({
 
     const appFeatures = [
       {
-        key: 'map',
+        key: 'feat-map',
         label: 'Bản đồ du lịch Vivu360',
         type: 'tab',
         Icon: MapIcon,
@@ -139,7 +139,7 @@ export function HomeScreen({
         }
       },
       {
-        key: 'social',
+        key: 'feat-social',
         label: 'Cộng đồng & Bảng tin',
         type: 'tab',
         Icon: Newspaper,
@@ -152,7 +152,7 @@ export function HomeScreen({
         }
       },
       {
-        key: 'chat',
+        key: 'feat-chat',
         label: 'Nhóm chat cộng đồng',
         type: 'tab',
         Icon: MessageSquare,
@@ -165,7 +165,7 @@ export function HomeScreen({
         }
       },
       {
-        key: 'camera',
+        key: 'feat-camera',
         label: 'Quét điểm đến AR 360°',
         type: 'tab',
         Icon: Scan,
@@ -178,7 +178,7 @@ export function HomeScreen({
         }
       },
       {
-        key: 'profile',
+        key: 'feat-profile',
         label: 'Trang cá nhân & Cài đặt',
         type: 'tab',
         Icon: User,
@@ -191,7 +191,7 @@ export function HomeScreen({
         }
       },
       {
-        key: 'ticketList',
+        key: 'feat-ticketList',
         label: 'Vé của tôi / Vé điện tử',
         type: 'tab',
         Icon: Ticket,
@@ -207,7 +207,7 @@ export function HomeScreen({
 
     const bookingFeatures = [
       {
-        key: 'hotel',
+        key: 'book-hotel',
         label: 'Đặt Khách sạn',
         type: 'explore',
         Icon: Building,
@@ -220,7 +220,7 @@ export function HomeScreen({
         }
       },
       {
-        key: 'tour',
+        key: 'book-tour',
         label: 'Đặt Tours du lịch Hot',
         type: 'explore',
         Icon: Compass,
@@ -233,7 +233,7 @@ export function HomeScreen({
         }
       },
       {
-        key: 'ticket',
+        key: 'book-ticket',
         label: 'Mua Vé vui chơi',
         type: 'explore',
         Icon: Ticket,
@@ -246,7 +246,7 @@ export function HomeScreen({
         }
       },
       {
-        key: 'car',
+        key: 'book-car',
         label: 'Thuê xe tự lái',
         type: 'explore',
         Icon: Car,
@@ -259,7 +259,7 @@ export function HomeScreen({
         }
       },
       {
-        key: 'sim',
+        key: 'book-sim',
         label: 'Mua WiFi & SIM du lịch',
         type: 'explore',
         Icon: Wifi,

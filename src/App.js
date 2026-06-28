@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Alert, Animated } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Alert, Animated, ActivityIndicator, LogBox } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Home,
@@ -23,6 +23,20 @@ import { SocialScreen } from './social';
 import { ChatScreen } from './chat';
 import { EditProfileScreen, MembershipTiersScreen, TravelChallengesScreen } from './settings';
 import { LoginScreen, RegisterScreen } from './auth';
+import { auth } from './auth/firebaseConfig';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import * as Notifications from 'expo-notifications';
+import { registerForPushNotificationsAsync } from './auth/notificationHelper';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+LogBox.ignoreLogs(['@firebase/auth: Auth']);
 
 import {
   banners,
@@ -67,7 +81,8 @@ export default function App() {
   const [selectedTicketCode, setSelectedTicketCode] = useState(null);
 
   // Auth navigation states
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
   const [authRoute, setAuthRoute] = useState('login'); // 'login' | 'register'
 
   // Booked tickets state
@@ -144,6 +159,42 @@ export default function App() {
     points: 8250,
     checkedIn: [1], // Checked-in places log (1 represents Vịnh Hạ Long)
   });
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserInfo(prev => ({
+          ...prev,
+          name: user.displayName || user.email.split('@')[0],
+          email: user.email,
+        }));
+      } else {
+        setIsLoggedIn(false);
+      }
+      setAuthLoading(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    // Đăng ký nhận thông báo đẩy
+    registerForPushNotificationsAsync();
+
+    // Lắng nghe khi có thông báo đến trong khi app đang mở
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Nhận thông báo:', notification);
+    });
+
+    // Lắng nghe khi người dùng nhấn mở thông báo
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('Nhấn mở thông báo:', response);
+    });
+
+    return () => {
+      Notifications.removeNotificationSubscription(notificationListener);
+      Notifications.removeNotificationSubscription(responseListener);
+    };
+  }, []);
 
   const handleAddPoints = (amount) => {
     setUserInfo(prev => {
@@ -295,9 +346,16 @@ export default function App() {
             onViewTiers={() => setActiveNav('membershipTiers')}
             onViewChallenges={() => setActiveNav('travelChallenges')}
             onLogout={() => {
-              setIsLoggedIn(false);
-              setAuthRoute('login');
-              setActiveNav('home');
+              signOut(auth)
+                .then(() => {
+                  setIsLoggedIn(false);
+                  setAuthRoute('login');
+                  setActiveNav('home');
+                  Alert.alert('Đăng xuất', 'Đã đăng xuất tài khoản thành công!');
+                })
+                .catch((error) => {
+                  Alert.alert('Lỗi', 'Không thể đăng xuất, vui lòng thử lại.');
+                });
             }}
           />
         );
@@ -392,6 +450,14 @@ export default function App() {
         );
     }
   };
+
+  if (authLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDarkMode ? '#0f0a1c' : theme.background }}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+      </View>
+    );
+  }
 
   if (!isLoggedIn) {
     if (authRoute === 'login') {
